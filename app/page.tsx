@@ -1,0 +1,122 @@
+'use client';
+
+import { Flame, ArrowRight, Lock, Loader2 } from 'lucide-react';
+import { signIn } from "next-auth/react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Home() {
+  const router = useRouter();
+  
+  // Default credentials for easier testing
+  const [email, setEmail] = useState("supervisor@heatsense.com");
+  const [password, setPassword] = useState("admin123");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const result = await signIn("credentials", {
+      redirect: false,
+      email,
+      password,
+    });
+
+    if (result?.ok) {
+      router.push("/dashboard");
+    } else {
+      alert("Invalid Credentials. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      
+      {/* Background Decor */}
+      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 opacity-80" />
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-orange-200 rounded-full blur-3xl opacity-20" />
+      <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-yellow-200 rounded-full blur-3xl opacity-20" />
+
+      {/* Main Login Card */}
+      <div className="max-w-md w-full bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 overflow-hidden relative z-10">
+        
+        {/* Header Section */}
+        <div className="bg-white p-8 pb-0 text-center">
+          <div className="mx-auto bg-orange-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 border border-orange-100 shadow-sm transform rotate-3 hover:rotate-0 transition-transform duration-500">
+            <Flame className="text-orange-500 w-8 h-8 fill-orange-500/20" />
+          </div>
+          <h1 className="text-3xl font-bold text-stone-800 tracking-tight">HeatSense</h1>
+          <p className="text-stone-500 mt-2 text-sm font-medium">Industrial Safety Monitoring</p>
+        </div>
+
+        {/* Body Section */}
+        <div className="p-8">
+          <div className="space-y-6">
+            
+            {/* Login Form */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider ml-1">
+                  Supervisor Email
+                </label>
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="supervisor@heatsense.com"
+                  className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all font-mono text-sm"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider ml-1">
+                  Access Key
+                </label>
+                <div className="relative">
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all font-mono text-sm"
+                    required
+                  />
+                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
+                </div>
+              </div>
+
+              {/* The "Sign In" Button */}
+              <button 
+                type="submit"
+                disabled={loading}
+                className="group w-full flex items-center justify-center gap-2 bg-stone-900 hover:bg-orange-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 shadow-lg shadow-stone-200 hover:shadow-orange-200 mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    Access Dashboard
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+        
+        {/* Bottom Stripe */}
+        <div className="h-1.5 w-full bg-stone-100 flex">
+           <div className="h-full w-1/3 bg-orange-400" />
+           <div className="h-full w-1/3 bg-stone-200" />
+           <div className="h-full w-1/3 bg-orange-600" />
+        </div>
+      </div>
+    </div>
+  );
+}

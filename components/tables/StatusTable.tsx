@@ -1,0 +1,144 @@
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  User, 
+  BatteryMedium, 
+  Activity, 
+  Clock, 
+  ChevronRight,
+  ThermometerSun,
+  Pencil
+} from 'lucide-react';
+import { Worker } from '@/types';
+import { cn, formatTimeAgo } from '@/lib/utils';
+
+interface StatusTableProps {
+  data: Worker[];
+}
+
+export const StatusTable = ({ data }: StatusTableProps) => {
+  const router = useRouter();
+
+  // Priority Sort: Red (0) -> Green (1)
+  const sortedData = [...data].sort((a, b) => {
+    const priority = { red: 0, green: 1 };
+    return priority[a.status] - priority[b.status];
+  });
+
+  return (
+    <div className="w-full bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-[#FFFBF5] border-b border-orange-100">
+          <tr>
+            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider">Worker Details</th>
+            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-center">Live Vitals</th>
+            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-center">Risk Status</th>
+            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-right">Last Sync</th>
+            <th className="px-6 py-4"></th> 
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-stone-100">
+          {sortedData.map((worker) => (
+            <tr 
+              key={worker.id} 
+              onClick={() => router.push(`/dashboard/${worker.id}`)}
+              className="group hover:bg-orange-50/50 transition-colors cursor-pointer"
+            >
+              {/* Worker Column */}
+              <td className="px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "p-2.5 rounded-full border",
+                    worker.status === 'red' 
+                      ? "bg-red-50 border-red-100 text-red-600" 
+                      : "bg-stone-50 border-stone-100 text-stone-500"
+                  )}>
+                    <User size={20} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-stone-900">{worker.name}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-mono text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
+                        {worker.id}
+                      </span>
+                      <span className="text-xs text-stone-400">• {worker.role}</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              {/* Vitals Column */}
+              <td className="px-6 py-5 text-center">
+                <div className="inline-flex items-center gap-4 bg-[#FFFBF5] border border-orange-100 px-4 py-2 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <Activity size={14} className="text-orange-400" />
+                    <span className="text-lg font-bold text-stone-700 tracking-widest">{worker.currentVitals?.heartRate}</span>
+                    <span className="text-[10px] text-stone-400 uppercase">BPM</span>
+                  </div>
+                  <div className="w-px h-4 bg-orange-200/50"></div>
+                  <div className="flex items-center gap-1.5">
+                    <ThermometerSun size={14} className="text-orange-400" />
+                    <span className="text-lg font-bold text-stone-700 tracking-widest">{worker.currentVitals?.skinTemp}</span>
+                    <span className="text-[10px] text-stone-400 uppercase">°C</span>
+                  </div>
+                </div>
+              </td>
+
+              {/* Status Column (Non-Interactive) */}
+              <td className="px-6 py-5">
+                <div className="flex justify-center">
+                  <div className={cn(
+                    "px-4 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 border",
+                    worker.status === 'red' 
+                      ? "bg-red-50 text-red-700 border-red-200 animate-pulse" 
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  )}>
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      worker.status === 'red' ? "bg-red-600" : "bg-emerald-500"
+                    )} />
+                    {worker.status === 'red' ? 'CRITICAL' : 'Safe'}
+                  </div>
+                </div>
+              </td>
+
+              {/* Last Sync Column */}
+              <td className="px-6 py-5 text-right">
+                <div className="flex items-center justify-end gap-1.5 text-stone-500">
+                  <Clock size={14} />
+                  <span className="text-sm font-medium">{formatTimeAgo(worker.lastSeen)}</span>
+                </div>
+                <div className="text-xs text-stone-400 mt-1 flex items-center justify-end gap-1">
+                  <BatteryMedium size={12} />
+                  <span>Device: {worker.deviceId}</span>
+                </div>
+              </td>
+
+              <td className="px-6 py-5 text-right">
+                <div className="flex items-center justify-end gap-3">
+                  {/* Edit Button */}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      alert("Edit modal would open here for " + worker.name);
+                    }}
+                    className="p-2 text-stone-300 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-all"
+                  >
+                    <Pencil size={16} /> 
+                  </button>
+                  
+                  {/* Navigation Arrow */}
+                  <span className="text-stone-300 group-hover:text-orange-400 transition-colors">
+                    <ChevronRight size={20} />
+                  </span>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};

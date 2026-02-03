@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Supervisor {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Will store the bcrypt hash
+  name      String
+  createdAt DateTime @default(now())
+}
+
+model Worker {
+  id        String   @id // Manual ID (e.g., "W-104")
+  name      String
+  deviceId  String   @unique // The physical ESP32 Serial
+  status    String   @default("green") // 'green' or 'red'
+  role      String   
+  lastSeen  DateTime @default(now())
+  
+  logs      HealthLog[]
+}
+
+model HealthLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  heartRate Float
+  skinTemp  Float
+  riskLevel Int      // 0 or 1
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id])
+
+  @@index([timestamp])
+  @@index([workerId])
+}
