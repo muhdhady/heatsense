@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, ThermometerSun, Plus, VolumeX, Play, ShieldCheck } from 'lucide-react';
 import { StatusTable } from '@/components/tables/StatusTable';
 import { WorkerModal } from '@/components/ui/WorkerModal';
-
-// --- CONFIGURATION ---
-const SIGNAL_TIMEOUT_SECONDS = 120;
-const SIGNAL_TIMEOUT_MS = SIGNAL_TIMEOUT_SECONDS * 1000;
-const SIGNAL_TIMEOUT_MINS = Math.floor(SIGNAL_TIMEOUT_SECONDS / 60);
+import { SIGNAL_TIMEOUT_MS, SIGNAL_TIMEOUT_MINS } from '@/lib/constants';
 
 export default function DashboardClient({ initialData }: { initialData: any[] }) {
   const router = useRouter();

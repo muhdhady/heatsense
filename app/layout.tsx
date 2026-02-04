@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Share_Tech_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const shareTechMono = Share_Tech_Mono({ 
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${shareTechMono.className} antialiased`}>
         {children}
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

@@ -1,35 +1,53 @@
-import React from 'react';
+import { getServerSession } from "next-auth/next";
+import { redirect, notFound } from "next/navigation";
 import db from '@/lib/db';
-import { notFound } from 'next/navigation';
 import WorkerDetailsClient from './client-page';
 
 interface PageProps {
   params: Promise<{ workerId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function WorkerDetailsPage({ params }: PageProps) {
-  // 1. Await the params
+export default async function WorkerDetailsPage({ params, searchParams }: PageProps) {
+  const session = await getServerSession();
+  if (!session) redirect("/");
+
   const resolvedParams = await params;
-  const id = decodeURIComponent(resolvedParams.workerId);
+  const resolvedSearchParams = await searchParams;
+  
+  const workerId = parseInt(decodeURIComponent(resolvedParams.workerId));
 
-  console.log(`🔍 Looking up Worker ID: "${id}"`);
-  const workerId = parseInt(id);
+  // 1. Determine Date Range (UAE TIMEZONE)
+  const uaeTimeZone = 'Asia/Dubai';
+  const todayInUAE = new Date().toLocaleDateString('en-CA', { timeZone: uaeTimeZone }); // YYYY-MM-DD
+  
+  // Get 'from' and 'to' from URL, or default to Today
+  const fromDateStr = (resolvedSearchParams.from as string) || todayInUAE;
+  const toDateStr = (resolvedSearchParams.to as string) || todayInUAE;
+  
+  // Calculate Start (00:00:00) and End (23:59:59) in UTC/Offset
+  const startOfRange = new Date(`${fromDateStr}T00:00:00+04:00`); 
+  const endOfRange = new Date(`${toDateStr}T23:59:59.999+04:00`);
 
-  // 2. Fetch Worker + Recent Logs
+  console.log(`🔍 Fetching logs from ${fromDateStr} to ${toDateStr} (UAE)`);
+
+  // 2. Fetch Worker + Filtered Logs
   const worker = await db.worker.findUnique({
     where: { id: workerId },
     include: {
       logs: {
-        orderBy: { timestamp: 'desc' },
-        take: 2000, 
+        where: {
+          timestamp: {
+            gte: startOfRange,
+            lte: endOfRange,
+          },
+        },
+        orderBy: { timestamp: 'asc' }, 
       },
     },
   });
 
-  if (!worker) {
-    console.log(`Worker "${id}" not found in Database.`); 
-    notFound();
-  }
+  if (!worker) notFound();
 
   // 3. Serialize Data
   const serializedWorker = {
@@ -38,7 +56,11 @@ export default async function WorkerDetailsPage({ params }: PageProps) {
     logs: worker.logs.map(log => ({
       ...log,
       timestamp: log.timestamp.toISOString(),
-    })).reverse(), 
+    })),
+    // Pass view context
+    viewFrom: fromDateStr,
+    viewTo: toDateStr,
+    isLiveView: (toDateStr === todayInUAE && fromDateStr === todayInUAE)
   };
 
   return <WorkerDetailsClient worker={serializedWorker} />;
