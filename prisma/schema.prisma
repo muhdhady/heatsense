@@ -33,7 +33,7 @@ model HealthLog {
   skinTemp  Float
   riskLevel Int      // 0 or 1
   workerId  Int
-  worker    Worker   @relation(fields: [workerId], references: [id])
+  worker    Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([timestamp])
   @@index([workerId])
