@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 
 // IMPORT CONSTANTS & UTILS
-import { SIGNAL_TIMEOUT_MS } from '@/lib/constants';
+import { SIGNAL_TIMEOUT_MS, UI_REFRESH_INTERVAL_MS } from '@/lib/constants';
 import { formatTimeAgo } from '@/lib/utils';
 
 // Format Helpers
@@ -49,7 +49,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
 
     const interval = setInterval(() => {
       router.refresh();
-    }, 2000);
+    }, UI_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [router, worker.isLiveView]);
 

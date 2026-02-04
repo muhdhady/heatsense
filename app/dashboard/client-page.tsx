@@ -6,7 +6,7 @@ import { AlertTriangle, ThermometerSun, Plus, VolumeX, Play, ShieldCheck } from 
 import { toast } from 'sonner';
 import { StatusTable } from '@/components/tables/StatusTable';
 import { WorkerModal } from '@/components/ui/WorkerModal';
-import { SIGNAL_TIMEOUT_MS, SIGNAL_TIMEOUT_MINS } from '@/lib/constants';
+import { SIGNAL_TIMEOUT_MS, SIGNAL_TIMEOUT_MINS, UI_REFRESH_INTERVAL_MS } from '@/lib/constants';
 
 export default function DashboardClient({ initialData }: { initialData: any[] }) {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
 
     const interval = setInterval(() => {
       router.refresh(); 
-    }, 2000);
+    }, UI_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [router, isMonitoringStarted]);
 

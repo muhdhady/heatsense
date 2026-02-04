@@ -32,7 +32,7 @@ export const StatusTable = ({ data, onEdit }: StatusTableProps) => {
         <thead className="bg-[#FFFBF5] border-b border-orange-100">
           <tr>
             <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider">Worker Details</th>
-            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-center">Live Vitals</th>
+            <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-center">Last Reported</th>
             <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-center">Risk Status</th>
             <th className="px-6 py-4 text-xs font-bold text-orange-900/60 uppercase tracking-wider text-right">Last Sync</th>
             <th className="px-6 py-4"></th> 
