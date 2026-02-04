@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation'; 
-import { AlertTriangle, ThermometerSun, Plus, VolumeX, Play, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ThermometerSun, Plus, VolumeX, Play, ShieldCheck, Pause } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusTable } from '@/components/tables/StatusTable';
 import { WorkerModal } from '@/components/ui/WorkerModal';
@@ -42,7 +42,10 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
   }, [router, isMonitoringStarted]);
 
   // --- METRICS CALCULATIONS ---
-  const criticalCount = initialData.filter((w: any) => w.status === 'red').length;
+  const criticalCount = initialData.filter((w: any) => 
+    w.status === 'red' && 
+    (Date.now() - new Date(w.lastSeen).getTime() < SIGNAL_TIMEOUT_MS)
+  ).length;
   const isSystemCritical = criticalCount > 0;
 
   const activeMetrics = useMemo(() => {
@@ -66,20 +69,32 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
 
   // --- AUDIO HANDLER ---
   useEffect(() => {
-    if (!isMonitoringStarted || !audioRef.current) return;
+    // Safety check
+    if (!audioRef.current) return;
 
+    // 1. Force Silence if Monitoring is Paused/Stopped
+    if (!isMonitoringStarted) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to start
+      return;
+    }
+
+    // 2. Normal Logic (Only runs if Monitoring is Started)
     if (isSystemCritical) {
       if (!isAudioDismissed) {
+        // Play Alarm
         audioRef.current.play().catch(e => {
           if (e.name !== 'AbortError') console.warn("Audio Playback:", e);
         });
       } else {
+        // Muted by user
         audioRef.current.pause();
       }
     } else {
+      // No Critical events -> Silence
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-      setIsAudioDismissed(false); 
+      setIsAudioDismissed(false); // Reset mute state for next emergency
     }
   }, [isSystemCritical, isAudioDismissed, isMonitoringStarted]);
 
@@ -265,6 +280,26 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
           </div>
 
           <div className="flex items-center gap-4">
+            <button 
+              onClick={() => {
+                setIsMonitoringStarted(!isMonitoringStarted);
+                if (isMonitoringStarted) {
+                    sessionStorage.removeItem("monitoring_started"); // Clear persistence
+                    toast.info("Monitoring paused");
+                } else {
+                    sessionStorage.setItem("monitoring_started", "true");
+                    toast.success("Monitoring resumed");
+                }
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+                isMonitoringStarted 
+                  ? "bg-white text-stone-600 border-stone-200 hover:bg-stone-50" 
+                  : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200"
+              }`}
+            >
+              {isMonitoringStarted ? <Pause size={16} /> : <Play size={16} />}
+              {isMonitoringStarted ? "Pause" : "Resume"}
+            </button>
             <button 
               onClick={handleAddNew}
               className="flex items-center gap-2 bg-stone-900 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm"
