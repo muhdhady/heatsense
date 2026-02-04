@@ -16,7 +16,7 @@ model Supervisor {
 }
 
 model Worker {
-  id        String   @id // Manual ID (e.g., "W-104")
+  id        Int      @id @default(autoincrement())
   name      String
   deviceId  String   @unique // The physical ESP32 Serial
   status    String   @default("green") // 'green' or 'red'
@@ -32,7 +32,7 @@ model HealthLog {
   heartRate Float
   skinTemp  Float
   riskLevel Int      // 0 or 1
-  workerId  String
+  workerId  Int
   worker    Worker   @relation(fields: [workerId], references: [id])
 
   @@index([timestamp])

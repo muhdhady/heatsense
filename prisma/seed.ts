@@ -23,29 +23,34 @@ async function main() {
   console.log('Supervisor Account Created (supervisor@heatsense.com / admin123)');
 
   // 2. Create Workers
+  // NOTICE: We removed the 'id' field. The DB will auto-generate 1, 2, 3...
   const workers = [
     {
-      id: 'W-104',
-      name: 'Zaid Mansoor',
+      name: 'Zaid',
       deviceId: 'HS-001',
       role: 'Welder',
       status: 'green',
     },
     {
-      id: 'W-102',
-      name: 'Omar Khalid',
+      name: 'Omar',
       deviceId: 'HS-002',
       role: 'Site Supervisor',
+      status: 'green',
+    },
+    {
+      name: 'Ali',
+      deviceId: 'HS-003',
+      role: 'Crane Operator',
       status: 'green',
     }
   ];
 
   for (const w of workers) {
-    await prismaa.worker.upsert({
-      where: { id: w.id },
-      update: {},
-      create: {
-        id: w.id,
+    // We use 'create' here since we know the DB is empty after a reset.
+    // If you plan to run this multiple times without resetting, you would need
+    // a unique field (like deviceId) to use upsert.
+    await prismaa.worker.create({
+      data: {
         name: w.name,
         deviceId: w.deviceId,
         role: w.role,

@@ -16,9 +16,10 @@ import { cn, formatTimeAgo } from '@/lib/utils';
 
 interface StatusTableProps {
   data: Worker[];
+  onEdit: (worker: any) => void;
 }
 
-export const StatusTable = ({ data }: StatusTableProps) => {
+export const StatusTable = ({ data, onEdit }: StatusTableProps) => {
   const router = useRouter();
 
   // Priority Sort: Red (0) -> Green (1)
@@ -61,7 +62,7 @@ export const StatusTable = ({ data }: StatusTableProps) => {
                     <div className="font-semibold text-stone-900">{worker.name}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs font-mono text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
-                        {worker.id}
+                        W-{worker.id}
                       </span>
                       <span className="text-xs text-stone-400">• {worker.role}</span>
                     </div>
@@ -74,13 +75,17 @@ export const StatusTable = ({ data }: StatusTableProps) => {
                 <div className="inline-flex items-center gap-4 bg-[#FFFBF5] border border-orange-100 px-4 py-2 rounded-lg shadow-sm">
                   <div className="flex items-center gap-1.5">
                     <Activity size={14} className="text-orange-400" />
-                    <span className="text-lg font-bold text-stone-700 tracking-widest">{worker.currentVitals?.heartRate}</span>
+                    <span className="text-lg font-bold text-stone-700 tracking-widest min-w-[2.5rem] text-right">
+                      {worker.currentVitals?.heartRate || '--'}
+                    </span>
                     <span className="text-[10px] text-stone-400 uppercase">BPM</span>
                   </div>
                   <div className="w-px h-4 bg-orange-200/50"></div>
                   <div className="flex items-center gap-1.5">
-                    <ThermometerSun size={14} className="text-orange-400" />
-                    <span className="text-lg font-bold text-stone-700 tracking-widest">{worker.currentVitals?.skinTemp}</span>
+                    <ThermometerSun size={14} className="text-orange-400" />                    
+                    <span className="text-lg font-bold text-stone-700 tracking-widest min-w-[3rem] text-right">
+                      {worker.currentVitals?.skinTemp ? Number(worker.currentVitals.skinTemp).toFixed(1) : '--.-'}
+                    </span>
                     <span className="text-[10px] text-stone-400 uppercase">°C</span>
                   </div>
                 </div>
@@ -108,7 +113,9 @@ export const StatusTable = ({ data }: StatusTableProps) => {
               <td className="px-6 py-5 text-right">
                 <div className="flex items-center justify-end gap-1.5 text-stone-500">
                   <Clock size={14} />
-                  <span className="text-sm font-medium">{formatTimeAgo(worker.lastSeen)}</span>
+                  <span className="text-sm font-medium" suppressHydrationWarning>
+                    {formatTimeAgo(worker.lastSeen)}
+                  </span>
                 </div>
                 <div className="text-xs text-stone-400 mt-1 flex items-center justify-end gap-1">
                   <BatteryMedium size={12} />
@@ -121,8 +128,8 @@ export const StatusTable = ({ data }: StatusTableProps) => {
                   {/* Edit Button */}
                   <button 
                     onClick={(e) => {
-                      e.stopPropagation();
-                      alert("Edit modal would open here for " + worker.name);
+                      e.stopPropagation(); 
+                      onEdit(worker);
                     }}
                     className="p-2 text-stone-300 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-all"
                   >

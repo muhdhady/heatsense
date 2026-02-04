@@ -3,17 +3,15 @@ import db from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
-    // 1. Parse the incoming JSON (from ESP32 or Simulator)
     const body = await req.json();
     const { deviceId, heartRate, skinTemp, riskLevel } = body;
 
-    // 2. Validate essential data
+    // Validate essential data
     if (!deviceId || !heartRate) {
       return NextResponse.json({ error: 'Missing Data' }, { status: 400 });
     }
 
-    // 3. Find the worker linked to this device
-    // Have to add checks for device not found later
+    // Find the worker
     const worker = await db.worker.findUnique({
       where: { deviceId: deviceId },
     });
@@ -22,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Device not registered' }, { status: 404 });
     }
 
-    // 4. Save the Health Log to the Database
+    // 1. Save the Health Log
     await db.healthLog.create({
       data: {
         workerId: worker.id,
@@ -32,12 +30,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // 5. Update the Worker's "Live Status" cache
-    // This allows the dashboard to show current state without querying logs
+    // 2. Update Worker Status AND Last Seen (THE FIX)
     await db.worker.update({
       where: { id: worker.id },
       data: {
-        status: parseInt(riskLevel) > 0 ? 'red' : 'green'
+        status: parseInt(riskLevel) > 0 ? 'red' : 'green',
+        lastSeen: new Date(),
       },
     });
 
