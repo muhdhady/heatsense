@@ -1,37 +1,44 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+// GET: Fetch all workers
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const workers = await db.worker.findMany({
+      orderBy: { id: 'asc' }
+    });
+
+    return NextResponse.json(workers);
+  } catch (error) {
+    console.error("API Fetch Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
 
 // POST: Create a new Worker
 export async function POST(req: Request) {
   try {
-    // 1. Security Check (Optional but recommended)
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { id, name, deviceId, role, status } = body;
+    const { name, deviceId, role } = body;
 
-    // 2. Validation: Check for empty fields
-    if (!id || !name || !deviceId) {
+    // 1. Validation
+    if (!name || !deviceId) {
       return NextResponse.json(
-        { error: "Missing required fields (ID, Name, or Device ID)" }, 
+        { error: "Name and Device ID are required." }, 
         { status: 400 }
       );
     }
 
-    // 3. Duplicate Check: Worker ID
-    const existingId = await db.worker.findUnique({ where: { id } });
-    if (existingId) {
-      return NextResponse.json(
-        { error: `Worker ID '${id}' is already in use.` }, 
-        { status: 409 }
-      );
-    }
-
-    // 4. Duplicate Check: Device ID
+    // 2. Duplicate Check: Device ID
+    // Workers cannot share the same sensor
     const existingDevice = await db.worker.findUnique({ where: { deviceId } });
     if (existingDevice) {
       return NextResponse.json(
@@ -40,21 +47,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Create the Worker
+    // 3. Create
     const newWorker = await db.worker.create({
       data: {
-        id,
         name,
         deviceId,
         role: role || 'Laborer',
-        status: status || 'green',
+        status: 'green', // Default to safe
       },
     });
 
     return NextResponse.json(newWorker);
 
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("API Create Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -62,22 +68,21 @@ export async function POST(req: Request) {
 // PUT: Update an existing Worker
 export async function PUT(req: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
     const { id, name, role, deviceId } = body; 
-    // Note: We usually don't update ID, but we use ID to find the record.
 
     if (!id) {
-      return NextResponse.json({ error: "Worker ID is required for updates" }, { status: 400 });
+      return NextResponse.json({ error: "Worker ID is required" }, { status: 400 });
     }
 
-    // Check if we are trying to change the Device ID to one that is already taken
+    // 1. Check if trying to use a taken Device ID
     if (deviceId) {
         const existingDevice = await db.worker.findUnique({ where: { deviceId } });
-        // If device exists AND it belongs to someone else (not the person we are editing)
-        if (existingDevice && existingDevice.id !== id) {
+        // If device exists AND belongs to a DIFFERENT worker
+        if (existingDevice && existingDevice.id !== parseInt(id)) {
             return NextResponse.json(
                 { error: `Device '${deviceId}' is already assigned to ${existingDevice.name}.` }, 
                 { status: 409 }
@@ -85,12 +90,13 @@ export async function PUT(req: Request) {
         }
     }
 
+    // 2. Update
     const updatedWorker = await db.worker.update({
-      where: { id },
+      where: { id: parseInt(id) }, // Ensure ID is an Integer
       data: {
         name,
         role,
-        deviceId, // Optional update
+        deviceId, 
       },
     });
 
@@ -99,5 +105,31 @@ export async function PUT(req: Request) {
   } catch (error) {
     console.error("API Update Error:", error);
     return NextResponse.json({ error: "Failed to update worker" }, { status: 500 });
+  }
+}
+
+// DELETE: Remove a worker
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Get ID from URL Search Params
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: "Worker ID required" }, { status: 400 });
+    }
+
+    await db.worker.delete({
+      where: { id: parseInt(id) }
+    });
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error("API Delete Error:", error);
+    return NextResponse.json({ error: "Failed to delete worker" }, { status: 500 });
   }
 }

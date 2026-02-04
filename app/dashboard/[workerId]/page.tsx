@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { redirect, notFound } from "next/navigation";
 import db from '@/lib/db';
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import WorkerDetailsClient from './client-page';
 
 interface PageProps {
@@ -9,15 +10,18 @@ interface PageProps {
 }
 
 export default async function WorkerDetailsPage({ params, searchParams }: PageProps) {
-  const session = await getServerSession();
+  // 1. Secure Auth Check
+  const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   
+  // Parse ID (Auto-increment Integer)
   const workerId = parseInt(decodeURIComponent(resolvedParams.workerId));
+  if (isNaN(workerId)) notFound();
 
-  // 1. Determine Date Range (UAE TIMEZONE)
+  // 2. Determine Date Range (UAE TIMEZONE)
   const uaeTimeZone = 'Asia/Dubai';
   const todayInUAE = new Date().toLocaleDateString('en-CA', { timeZone: uaeTimeZone }); // YYYY-MM-DD
   
@@ -29,9 +33,7 @@ export default async function WorkerDetailsPage({ params, searchParams }: PagePr
   const startOfRange = new Date(`${fromDateStr}T00:00:00+04:00`); 
   const endOfRange = new Date(`${toDateStr}T23:59:59.999+04:00`);
 
-  console.log(`🔍 Fetching logs from ${fromDateStr} to ${toDateStr} (UAE)`);
-
-  // 2. Fetch Worker + Filtered Logs
+  // 3. Fetch Worker + Filtered Logs
   const worker = await db.worker.findUnique({
     where: { id: workerId },
     include: {
@@ -49,7 +51,7 @@ export default async function WorkerDetailsPage({ params, searchParams }: PagePr
 
   if (!worker) notFound();
 
-  // 3. Serialize Data
+  // 4. Serialize Data
   const serializedWorker = {
     ...worker,
     lastSeen: worker.lastSeen.toISOString(),

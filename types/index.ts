@@ -6,7 +6,7 @@ export interface Worker {
   role: string;
   lastSeen: string; // ISO Date string
   
-  // Snapshot of vitals for the dashboard table, have to update
+  // Snapshot of vitals for the dashboard table, have to update later
   currentVitals?: {
     heartRate: number;
     skinTemp: number;

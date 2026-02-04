@@ -13,8 +13,9 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 
-// IMPORT CONSTANTS
+// IMPORT CONSTANTS & UTILS
 import { SIGNAL_TIMEOUT_MS } from '@/lib/constants';
+import { formatTimeAgo } from '@/lib/utils';
 
 // Format Helpers
 const formatTime = (isoString: string, showDate = false) => {
@@ -82,7 +83,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
     const firstLogTime = new Date(logs[0].timestamp).getTime();
     let lastLogTime;
 
-    if (worker.isLiveView) {
+    if (worker.isLiveView && !isOffline) {
       lastLogTime = Date.now();
     } else {
       lastLogTime = new Date(logs[logs.length - 1].timestamp).getTime();
@@ -90,7 +91,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
     
     // Critical Event Check
     const hasCriticalEvent = logs.some((log: any) => 
-        log.riskLevel === 'high' || log.status === 'red' || log.skinTemp > 38
+        log.riskLevel > 0 || log.skinTemp > 38
     );
     
     return {
@@ -99,7 +100,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
       shiftDuration: lastLogTime - firstLogTime,
       hasCriticalEvent
     };
-  }, [logs, worker.isLiveView]);
+  }, [logs, worker.isLiveView, isOffline]);
 
   // --- 3. HANDLERS ---
   
@@ -150,16 +151,17 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
             <div className="flex items-center gap-4">
               <Link 
                 href="/dashboard" 
-                className="p-2 -ml-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-all"
+                className="flex items-center justify-center w-8 h-8 bg-white border border-stone-200 text-stone-500 hover:text-orange-600 hover:border-orange-200 rounded-lg transition-all shadow-sm"
+                title="Back to Dashboard"
               >
-                <ArrowLeft size={20} />
+                <ArrowLeft size={18} />
               </Link>
               <div>
                 <h1 className="text-xl font-bold text-stone-900 flex items-center gap-2">
                 {worker.name}
                 {worker.isLiveView && (
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    isOffline ? 'bg-stone-100 text-stone-500' : // Grey if Offline
+                    isOffline ? 'bg-stone-100 text-stone-500' : 
                     worker.status === 'red' ? 'bg-red-100 text-red-600' : 
                     'bg-emerald-100 text-emerald-600'
                   }`}>
@@ -168,8 +170,8 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                 )}
               </h1>
                 <div className="flex items-center gap-3 text-xs text-stone-500 mt-1 font-mono">
-                  <span className="flex items-center gap-1.5">
-                    <Clock size={12} /> Last Sync: {currentLog.timestamp ? formatTime(currentLog.timestamp) : '--'}
+                  <span className="flex items-center gap-1.5" suppressHydrationWarning>
+                    <Clock size={12} /> Last Sync: {currentLog.timestamp ? formatTimeAgo(currentLog.timestamp) : '--'}
                   </span>
                   <span className="hidden md:inline">|</span>
                   <span>ID: {worker.id}</span>
@@ -263,13 +265,10 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
             </div>
           </div>
 
-          {/* Status Card - Uses showRealtimeStatus logic */}
+          {/* Status Card */}
           <div className={`p-5 rounded-xl border shadow-sm ${
-            // 1. If Realtime & RED -> RED
             showRealtimeStatus && worker.status === 'red' ? 'bg-red-50 border-red-200' :
-            // 2. If History/Offline & Critical Event -> ORANGE
             !showRealtimeStatus && stats.hasCriticalEvent ? 'bg-orange-50 border-orange-200' :
-            // 3. Else -> GREEN/WHITE
             'bg-white border-stone-200'
           }`}>
             <div className="flex items-start justify-between mb-4">
@@ -354,6 +353,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                   
                   <Tooltip 
                     labelFormatter={(label) => formatTime(label, true)}
+                    labelStyle={{ color: '#0c0a09', fontWeight: 'bold', marginBottom: '4px' }} // Dark Stone-950 color
                     contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e5e5' }}
                     itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                   />

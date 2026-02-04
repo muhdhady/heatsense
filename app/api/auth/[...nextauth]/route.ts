@@ -1,12 +1,13 @@
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import db from "@/lib/db";
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/", // Redirect to our custom login page if unauthenticated
+    signIn: "/", 
   },
   providers: [
     CredentialsProvider({
@@ -18,32 +19,48 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 1. Fetch user from DB
-        const user = await db.supervisor.findUnique({
-          where: { email: credentials.email }
-        });
+        try {
+          const user = await db.supervisor.findUnique({
+            where: { email: credentials.email }
+          });
 
-        if (!user) return null;
+          if (!user) return null;
 
-        // 2. Verify Password
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+          const isValid = await bcrypt.compare(credentials.password, user.password);
 
-        if (!isValid) return null;
+          if (!isValid) return null;
 
-        // 3. Return user object (NextAuth saves this in the token)
-        return { id: user.id, name: user.name, email: user.email };
+          // Convert ID to string to match NextAuth expectations
+          return { 
+            id: user.id.toString(), 
+            name: user.name, 
+            email: user.email 
+          };
+
+        } catch (error) {
+          console.error("Auth Error:", error);
+          return null;
+        }
       }
     })
   ],
   callbacks: {
-    // Add User ID to the session object so we can use it in the app
+    async jwt({ token, user }) {
+      // If user exists, it means this is the first login. Add ID to token.
+      if (user) {
+        token.sub = user.id;
+      }
+      return token;
+    },
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.sub;
+      if (session.user && token.sub) {
+        session.user.id = token.sub; 
       }
       return session;
     }
   }
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

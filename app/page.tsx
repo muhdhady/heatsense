@@ -4,29 +4,37 @@ import { Flame, ArrowRight, Lock, Loader2 } from 'lucide-react';
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function Home() {
   const router = useRouter();
   
-  // Default credentials for easier testing
-  const [email, setEmail] = useState("supervisor@heatsense.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
+    try {
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
 
-    if (result?.ok) {
-      router.push("/dashboard");
-    } else {
-      alert("Invalid Credentials. Please try again.");
+      if (result?.ok) {
+        toast.success("Access Granted. Initializing dashboard...");
+        router.push("/dashboard");
+      } else {
+        // result.error contains the error message from the server
+        toast.error("Invalid Credentials. Please check your access key.");
+        setLoading(false);
+      }
+    } catch (error) {
+      // Catches network errors
+      toast.error("Network error. Please check your connection.");
       setLoading(false);
     }
   };

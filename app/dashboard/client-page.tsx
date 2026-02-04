@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { AlertTriangle, ThermometerSun, Plus, VolumeX, Play, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { StatusTable } from '@/components/tables/StatusTable';
 import { WorkerModal } from '@/components/ui/WorkerModal';
 import { SIGNAL_TIMEOUT_MS, SIGNAL_TIMEOUT_MINS } from '@/lib/constants';
@@ -13,13 +14,22 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
   // --- STATE MANAGEMENT ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State: Has the user clicked "Start"? 
+  // Monitoring State
   const [isMonitoringStarted, setIsMonitoringStarted] = useState(false);
 
   // --- AUDIO SETUP ---
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isAudioDismissed, setIsAudioDismissed] = useState(false);
+
+  // --- SESSION MANAGER ---
+  useEffect(() => {
+    const wasStarted = sessionStorage.getItem("monitoring_started");
+    if (wasStarted === "true") {
+      setIsMonitoringStarted(true);
+    }
+  }, []);
 
   // --- LIVE DATA TICKER ---
   useEffect(() => {
@@ -32,16 +42,10 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
   }, [router, isMonitoringStarted]);
 
   // --- METRICS CALCULATIONS ---
-  
-  // 1. Criticality
   const criticalCount = initialData.filter((w: any) => w.status === 'red').length;
   const isSystemCritical = criticalCount > 0;
 
-  // 2. Active Signals (Last 2 minutes)
-  // We use useMemo so this doesn't recalculate on every tiny render, 
-  // though we still need to handle hydration carefully in the UI.
   const activeMetrics = useMemo(() => {
-    // Use the constant here
     const activeCount = initialData.filter(w => 
       (Date.now() - new Date(w.lastSeen).getTime()) < SIGNAL_TIMEOUT_MS
     ).length;
@@ -53,7 +57,6 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
     };
   }, [initialData]);
 
-  // 3. Average Temp
   const avgTemp = useMemo(() => {
     const workersWithTemp = initialData.filter(w => w.currentVitals?.skinTemp);
     if (workersWithTemp.length === 0) return '--';
@@ -67,7 +70,9 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
 
     if (isSystemCritical) {
       if (!isAudioDismissed) {
-        audioRef.current.play().catch(e => console.error("Audio Play Error:", e));
+        audioRef.current.play().catch(e => {
+          if (e.name !== 'AbortError') console.warn("Audio Playback:", e);
+        });
       } else {
         audioRef.current.pause();
       }
@@ -79,30 +84,99 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
   }, [isSystemCritical, isAudioDismissed, isMonitoringStarted]);
 
 
-  // --- USER ACTIONS ---
+  // --- API HANDLERS (CRUD) ---
+
+  // 1. SAVE (Create or Update)
+  const handleSaveWorker = async (formData: any) => {
+    setIsSubmitting(true);
+    try {
+      const isEditing = !!editingWorker;
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const payload = {
+        ...formData,
+        id: isEditing ? editingWorker.id : undefined
+      };
+
+      const res = await fetch('/api/workers', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save worker');
+      }
+
+      // Success Toast
+      toast.success(isEditing ? "Worker updated successfully" : "Worker deployed successfully");
+      setIsModalOpen(false);
+      router.refresh(); 
+
+    } catch (error) {
+      // Error Toast
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 2. DELETE
+  const handleDeleteWorker = async (workerId: number) => {
+    // SECURITY: We use confirm() here. It blocks the UI until answered.
+    if (!confirm("Are you sure you want to remove this worker? All logs will be permanently deleted.")) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/workers?id=${workerId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete worker');
+      }
+
+      // Success Toast
+      toast.success("Worker removed from system");
+      setIsModalOpen(false);
+      router.refresh();
+
+    } catch (error) {
+      // Error Toast
+      toast.error(error instanceof Error ? error.message : "Failed to delete worker");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+  // --- USER INTERFACE ACTIONS ---
 
   const handleStartMonitoring = async () => {
     const audio = new Audio('/alarm.mp3');
     audio.loop = true;
-    
-    // Unlock Logic
     try {
       await audio.play();
       audio.pause();
       audio.currentTime = 0;
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        console.warn("Audio unlock warning:", error);
-      }
+      // Ignore initial play errors
     }
-
     audioRef.current = audio;
     setIsMonitoringStarted(true);
+    sessionStorage.setItem("monitoring_started", "true");
+    toast.info("Real-time monitoring enabled");
   };
 
   const handleDismissAudio = () => {
     setIsAudioDismissed(true);
     audioRef.current?.pause();
+    toast.success("Alarm muted temporarily");
   };
 
   const handleAddNew = () => {
@@ -140,15 +214,17 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
         </div>
       )}
 
-      {/* --- NORMAL DASHBOARD CONTENT --- */}
-      
+      {/* --- WORKER MODAL (With API Hooks) --- */}
       <WorkerModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        initialData={editingWorker} 
+        initialData={editingWorker}
+        onSave={handleSaveWorker}   
+        onDelete={handleDeleteWorker} 
+        isSubmitting={isSubmitting} 
       />
 
-      {/* Alert Banner */}
+      {/* --- ALERT BANNER --- */}
       {isSystemCritical && isMonitoringStarted && (
         <div className="w-full bg-red-600 text-white px-4 py-3 shadow-md flex flex-col md:flex-row items-center justify-between gap-3 sticky top-0 z-50 animate-in slide-in-from-top">
           <div className="flex items-center gap-3 justify-center w-full md:w-auto">
@@ -175,7 +251,7 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
         </div>
       )}
 
-      {/* Header */}
+      {/* --- HEADER --- */}
       <header className="bg-white border-b border-stone-100">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -200,7 +276,7 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* --- MAIN CONTENT --- */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         
         {/* KPI Cards */}
@@ -217,13 +293,11 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
                     <h3 className="text-stone-500 text-xs font-bold uppercase tracking-wider">
                       Real-Time Monitoring
                     </h3>
-                    {/* Tiny badge showing the time window */}
                     <span className="bg-stone-100 text-stone-500 text-[10px] px-1.5 py-0.5 rounded border border-stone-200">
                       {SIGNAL_TIMEOUT_MINS}m Window
                     </span>
                   </div>
                   
-                  {/* The Big Number */}
                   <div className="flex items-baseline gap-2" suppressHydrationWarning>
                      <span className="text-3xl font-bold text-stone-900">
                        {activeMetrics.active}
@@ -231,7 +305,6 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
                      </span>
                   </div>
 
-                  {/* Context Text */}
                   <div className="flex items-center gap-2 mt-2" suppressHydrationWarning>
                     <div className={`relative w-2 h-2 rounded-full flex-shrink-0 ${activeMetrics.isFull ? 'bg-emerald-500' : 'bg-amber-500'}`}>
                       {activeMetrics.isFull && <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></div>}
@@ -266,6 +339,7 @@ export default function DashboardClient({ initialData }: { initialData: any[] })
           </div>
         </div>
 
+        {/* --- WORKER TABLE --- */}
         <StatusTable data={initialData} onEdit={handleEditWorker} />
       </main>
     </div>
