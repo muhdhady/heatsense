@@ -53,6 +53,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   
+  // Default to History if URL has date params
   const hasDateParams = searchParams.has('from') || searchParams.has('to');
   const [activeTab, setActiveTab] = useState<'live' | 'history'>(hasDateParams ? 'history' : 'live');
 
@@ -66,7 +67,6 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
   const liveLog = worker.latestLog; 
 
   // --- CHECK IF MULTI-DAY DATA ---
-  // If the first log and last log are on different days, we enable date labels on X-Axis
   const isMultiDay = useMemo(() => {
     if (logs.length < 2) return false;
     const start = new Date(logs[0].timestamp).getDate();
@@ -125,7 +125,8 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
         setActiveTab('history');
       });
     } else {
-      toast.error("Please select a valid date range.");
+      // USER FEEDBACK: Explains why it's invalid
+      toast.error("Invalid Range: Start Date cannot be after End Date.");
     }
   };
 
@@ -172,7 +173,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                 <div className="flex items-center gap-3 text-xs text-stone-400 mt-1 font-mono">
                   <span>ID: {worker.id}</span>
                   <span className="text-stone-300">|</span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" suppressHydrationWarning>
                     <Clock size={12} /> {liveLog ? formatTimeAgo(liveLog.timestamp) : 'Never'}
                   </span>
                 </div>
@@ -259,27 +260,51 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
         {activeTab === 'history' && (
            <div className={cn(
              "p-4 rounded-xl border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 transition-colors duration-300 animate-in fade-in slide-in-from-top-1",
+             // RED ALERT STYLE IF INVALID
              isRangeInvalid ? "bg-red-50 border-red-200" : "bg-white border-stone-200"
            )}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
                  <div className="flex items-center gap-2">
                    <div className={cn("flex items-center gap-2 text-sm font-medium", isRangeInvalid ? "text-red-700" : "text-stone-500")}>
                      {isRangeInvalid ? <AlertCircle size={16} /> : <Calendar size={16} />}
-                     <span>Range:</span>
+                     {/* TEXT FEEDBACK FOR USER */}
+                     <span>{isRangeInvalid ? "Invalid Date Range:" : "Range:"}</span>
                    </div>
+                   
                    <div className={cn("flex items-center gap-2 rounded-lg p-1", isRangeInvalid ? "bg-red-100" : "bg-stone-50")}>
                      <input type="date" value={dateRange.from} onChange={(e) => handleDateInput('from', e.target.value)} max={todayStr} className="bg-transparent border-none text-xs font-medium text-stone-700 focus:ring-0 outline-none w-28 px-2 py-1" />
                      <span className="text-stone-300">-</span>
                      <input type="date" value={dateRange.to} max={todayStr} onChange={(e) => handleDateInput('to', e.target.value)} className="bg-transparent border-none text-xs font-medium text-stone-700 focus:ring-0 outline-none w-28 px-2 py-1" />
                    </div>
                  </div>
-                 <button onClick={applyDateFilter} disabled={isPending || isRangeInvalid} className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2", (isPending || isRangeInvalid) ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-white border border-stone-300 text-stone-700 hover:bg-stone-50 hover:border-stone-400")}>
+
+                 <button 
+                    onClick={applyDateFilter}
+                    disabled={isPending || isRangeInvalid}
+                    className={cn(
+                      "px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                      (isPending || isRangeInvalid)
+                        ? "bg-stone-200 text-stone-400 cursor-not-allowed" 
+                        : "bg-white border border-stone-300 text-stone-700 hover:bg-stone-50 hover:border-stone-400"
+                    )}
+                 >
                     {isPending ? <Loader2 size={14} className="animate-spin" /> : <Filter size={14} />}
                     {isPending ? "Loading..." : "Apply"}
                  </button>
               </div>
-              <button onClick={handleExport} disabled={isPending || isRangeInvalid || !logs.length} className={cn("w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all", (isPending || isRangeInvalid || !logs.length) ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-stone-900 text-white hover:bg-orange-600 shadow-sm")}>
-                 <Download size={14} /> Export CSV
+              
+              <button 
+                 onClick={handleExport}
+                 disabled={isPending || isRangeInvalid || !logs.length}
+                 className={cn(
+                   "w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                   (isPending || isRangeInvalid || !logs.length)
+                     ? "bg-stone-200 text-stone-400 cursor-not-allowed" 
+                     : "bg-stone-900 text-white hover:bg-orange-600 shadow-sm"
+                 )}
+              >
+                 <Download size={14} /> 
+                 Export CSV
               </button>
            </div>
         )}
@@ -288,13 +313,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
         {((activeTab === 'live' && !isOffline) || activeTab === 'history') && (
            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
              
-             {activeTab === 'live' && (
-                <div className="flex items-center gap-2 text-xs text-stone-400 bg-stone-50 p-2 rounded-lg justify-center">
-                   <BrainCircuit size={14} />
-                   <span>RPE is calculated using the Borg Scale (Heart Rate / 10).</span>
-                </div>
-             )}
-
+             {/* Chart 1 */}
              <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
                 <h3 className="text-sm font-bold text-stone-800 uppercase tracking-wider mb-6 flex items-center gap-2">
                    <Activity size={16} className="text-orange-500" /> Heart Rate Trend
@@ -310,10 +329,9 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
                       
-                      {/* UPDATED X-AXIS */}
+                      {/* X-AXIS: Shows Date if multi-day, Time if single-day */}
                       <XAxis 
                         dataKey="timestamp" 
-                        // Smart formatting: shows date if multi-day, only time if single day
                         tickFormatter={(val) => formatAxisDate(val, isMultiDay)} 
                         stroke="#a8a29e" 
                         fontSize={10} 
@@ -321,20 +339,14 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                       />
                       
                       <YAxis stroke="#a8a29e" fontSize={10} domain={['dataMin - 10', 'dataMax + 10']} />
-                      
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                        // Uses the full date formatter for the tooltip
-                        labelFormatter={(l) => formatTooltipDate(l)} 
-                        labelStyle={{ color: '#0c0a09', fontWeight: 'bold' }} 
-                      />
-                      
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(l) => formatTooltipDate(l)} labelStyle={{ color: '#0c0a09', fontWeight: 'bold' }} />
                       <Area type="monotone" dataKey="heartRate" stroke="#f97316" strokeWidth={2} fill="url(#colorHr)" isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
              </div>
 
+             {/* Chart 2 */}
              <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
                 <h3 className="text-sm font-bold text-stone-800 uppercase tracking-wider mb-6 flex items-center gap-2">
                    <ThermometerSun size={16} className="text-blue-500" /> Skin Temperature Trend
@@ -350,7 +362,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
                       
-                      {/* UPDATED X-AXIS */}
+                      {/* X-AXIS: Shows Date if multi-day, Time if single-day */}
                       <XAxis 
                         dataKey="timestamp" 
                         tickFormatter={(val) => formatAxisDate(val, isMultiDay)} 
@@ -360,13 +372,7 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                       />
                       
                       <YAxis stroke="#a8a29e" fontSize={10} domain={[32, 42]} />
-                      
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                        labelFormatter={(l) => formatTooltipDate(l)} 
-                        labelStyle={{ color: '#0c0a09', fontWeight: 'bold' }} 
-                      />
-                      
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(l) => formatTooltipDate(l)} labelStyle={{ color: '#0c0a09', fontWeight: 'bold' }} />
                       <Area type="monotone" dataKey="skinTemp" stroke="#3b82f6" strokeWidth={2} fill="url(#colorTemp)" isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
