@@ -4,28 +4,54 @@ import db from '@/lib/db';
 import DashboardClient from './client-page';
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// Server Component
+// Weather API (Sharjah - AUS Campus Coordinates)
+const WEATHER_API = "https://api.open-meteo.com/v1/forecast?latitude=25.3117&longitude=55.4921&current=temperature_2m,relative_humidity_2m&timezone=Asia%2FDubai";
+
+// Helper: Fetch Weather with ISR (Cached for 30 mins)
+async function getWeather() {
+  try {
+    const res = await fetch(WEATHER_API, {
+      next: { revalidate: 1800 } // Cache for 1800 seconds (30 mins)
+    });
+    
+    if (!res.ok) throw new Error('Weather fetch failed');
+    
+    const data = await res.json();
+    return {
+      temp: data.current?.temperature_2m.toFixed(1) || '--',
+      humidity: data.current?.relative_humidity_2m.toString() || '--'
+    };
+  } catch (error) {
+    console.error("Weather Error:", error);
+    return { temp: '--', humidity: '--' }; // Fallback values
+  }
+}
+
 export default async function DashboardPage() {
-  // 1. Check Auth Securely
+  // 1. Secure Auth Check
   const session = await getServerSession(authOptions);
   
   if (!session) {
     redirect("/");
   }
 
-  // 2. Fetch Workers from DB
-  const workers = await db.worker.findMany({
-    include: {
-      logs: {
-        orderBy: { timestamp: 'desc' },
-        take: 1, // Get only the latest log for "Real-time" status
+  // 2. Parallel Data Fetching
+  const [workers, weatherData] = await Promise.all([
+    // A. Fetch Workers
+    db.worker.findMany({
+      include: {
+        logs: {
+          orderBy: { timestamp: 'desc' },
+          take: 1, // Get only the latest log for "Real-time" status
+        },
       },
-    },
-    orderBy: { id: 'asc' } // Order by ID (1, 2, 3...)
-  });
+      orderBy: { id: 'asc' }
+    }),
+    // B. Fetch Weather (Cached)
+    getWeather()
+  ]);
 
   // 3. Transform Data for the UI
-  // The UI expects "currentVitals", but DB gives "logs[]". We map it here.
   const formattedWorkers = workers.map(w => ({
     ...w,
     lastSeen: w.lastSeen.toISOString(),
@@ -35,6 +61,11 @@ export default async function DashboardPage() {
     } : undefined
   }));
 
-  // 4. Pass data to the Client Component
-  return <DashboardClient initialData={formattedWorkers} />;
+  // 4. Pass combined data to Client
+  return (
+    <DashboardClient 
+      initialData={formattedWorkers} 
+      initialWeather={weatherData} 
+    />
+  );
 }

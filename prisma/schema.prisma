@@ -32,6 +32,7 @@ model HealthLog {
   heartRate Float
   skinTemp  Float
   riskLevel Int      // 0 or 1
+  rpe       Int      @default(6)
   workerId  Int
   worker    Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
