@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
     // 2. Input Parsing
     const body = await req.json();
-    const { deviceId, heartRate, skinTemp, riskLevel, rpe } = body;
+    const { deviceId, heartRate, skinTemp, riskLevel, tc } = body;
 
     if (!deviceId) {
       return NextResponse.json({ error: 'Missing Device ID' }, { status: 400 });
@@ -24,11 +24,18 @@ export async function POST(req: Request) {
     const temp = parseFloat(skinTemp);
     const risk = parseInt(riskLevel) || 0;
 
-    // BORG SCALE (6-20): Default to 6 (No Exertion) if missing
-    const rpeLevel = parseInt(rpe) || 6; 
+    // THERMAL COMFORT: Must be one of three discrete button values (5=Low, 11=Medium, 17=High)
+    const tcLevel = parseInt(tc) || 5;
+    if (![5, 11, 17].includes(tcLevel)) {
+      return NextResponse.json({ error: 'Invalid TC value: must be 5, 11, or 17' }, { status: 400 });
+    }
 
     if (isNaN(hr) || isNaN(temp)) {
       return NextResponse.json({ error: 'Invalid sensor data format' }, { status: 400 });
+    }
+
+    if (hr < 30 || hr > 250 || temp < 25 || temp > 45) {
+      return NextResponse.json({ error: 'Sensor values out of plausible range' }, { status: 400 });
     }
 
     // 4. Find Worker
@@ -49,7 +56,7 @@ export async function POST(req: Request) {
           heartRate: hr,
           skinTemp: temp,
           riskLevel: risk,
-          rpe: rpeLevel // 6-20 Scale
+          tc: tcLevel
         },
       }),
       db.worker.update({
