@@ -82,15 +82,30 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
   }, [liveLog]);
 
   const stats = useMemo(() => {
-    if (!logs.length) return { avgHr: 0, avgTemp: 0, rpe: '--' };
+    if (!logs.length) return { avgHr: 0, avgTemp: 0, tc: null };
     const totalHr = logs.reduce((acc: number, log: any) => acc + log.heartRate, 0);
     const totalTemp = logs.reduce((acc: number, log: any) => acc + log.skinTemp, 0);
+    const rawTc = activeTab === 'live' && liveLog ? liveLog.tc : (logs[logs.length - 1]?.tc ?? null);
     return {
       avgHr: Math.round(totalHr / logs.length),
       avgTemp: (totalTemp / logs.length).toFixed(1),
-      rpe: activeTab === 'live' && liveLog ? liveLog.rpe : (logs[logs.length - 1]?.rpe || '--')
+      tc: rawTc
     };
   }, [logs, liveLog, activeTab]);
+
+  const tcLabel = (val: number | null): string => {
+    if (val === null) return '--';
+    if (val <= 7) return 'Low';
+    if (val <= 14) return 'Medium';
+    return 'High';
+  };
+
+  const tcColor = (val: number | null): string => {
+    if (val === null) return 'text-stone-400';
+    if (val <= 7) return 'text-emerald-600';
+    if (val <= 14) return 'text-amber-500';
+    return 'text-red-500';
+  };
 
   // --- HANDLERS ---
   const handleTabChange = (tab: 'live' | 'history') => {
@@ -133,9 +148,9 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
   const handleExport = () => {
     if (isRangeInvalid || !logs.length || isPending) return;
 
-    const headers = "Timestamp,Worker ID,Heart Rate (BPM),Skin Temp (C),RPE (Borg),Risk Level\n";
-    const rows = logs.map((log: any) => 
-      `${log.timestamp},${worker.id},${log.heartRate},${log.skinTemp},${log.rpe || 6},${log.riskLevel}`
+    const headers = "Timestamp,Worker ID,Heart Rate (BPM),Skin Temp (C),TC (Thermal Discomfort),Risk Level\n";
+    const rows = logs.map((log: any) =>
+      `${log.timestamp},${worker.id},${log.heartRate},${log.skinTemp},${tcLabel(log.tc ?? null)},${log.riskLevel}`
     ).join("\n");
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
@@ -246,9 +261,9 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
                        <div className="mt-2 text-xs font-medium text-stone-500">Current Reading</div>
                     </div>
                     <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm">
-                       <div className="flex justify-between mb-4"><span className="text-xs font-bold text-stone-400 uppercase tracking-wider">Real-Time RPE</span><BrainCircuit size={16} className="text-purple-500" /></div>
-                       <div className="text-3xl font-bold text-stone-800 font-mono">{liveLog?.rpe || '--'}</div>
-                       <div className="mt-2 text-xs font-medium text-stone-500">Borg Scale (6-20)</div>
+                       <div className="flex justify-between mb-4"><span className="text-xs font-bold text-stone-400 uppercase tracking-wider">Thermal Discomfort</span><BrainCircuit size={16} className="text-purple-500" /></div>
+                       <div className={`text-3xl font-bold font-mono ${tcColor(liveLog?.tc ?? null)}`}>{tcLabel(liveLog?.tc ?? null)}</div>
+                       <div className="mt-2 text-xs font-medium text-stone-500">Perceptual Input</div>
                     </div>
                  </div>
                </>
