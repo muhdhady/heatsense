@@ -56,7 +56,11 @@ async function sendOne(deviceId) {
       headers: { "Content-Type": "application/json", "x-api-key": IOT_SECRET },
       body: JSON.stringify(data),
     });
-    return { ok: response.ok, status: response.status, elapsed: Date.now() - start };
+    return {
+      ok: response.ok,
+      status: response.status,
+      elapsed: Date.now() - start,
+    };
   } catch {
     return { ok: false, status: 0, elapsed: Date.now() - start };
   }
@@ -67,7 +71,7 @@ async function runSimulation() {
   for (const deviceId of SIMULATION_DEVICES) {
     const data = generateVitals(deviceId);
     console.log(
-      `📤 Sending ${deviceId}: HR ${data.heartRate} | TC ${data.tc} (${data.tc <= 7 ? "Low" : data.tc <= 14 ? "Medium" : "High"})`
+      `📤 Sending ${deviceId}: HR ${data.heartRate} | TC ${data.tc} (${data.tc <= 7 ? "Low" : data.tc <= 14 ? "Medium" : "High"})`,
     );
     const result = await sendOne(deviceId);
     if (!result.ok) console.log(`❌ API Error: ${result.status}`);
@@ -76,12 +80,14 @@ async function runSimulation() {
 
 // --- STRESS TEST MODE ---
 async function runStressTest() {
-  console.log("🔥 Starting Stress Test — ensure seed-stress-devices.js has been run first.\n");
+  console.log(
+    "🔥 Starting Stress Test — ensure seed-stress-devices.js has been run first.\n",
+  );
 
   for (const count of STRESS_LEVELS) {
     const devices = Array.from(
       { length: count },
-      (_, i) => `HS-SIM-${String(i + 1).padStart(3, "0")}`
+      (_, i) => `HS-SIM-${String(i + 1).padStart(3, "0")}`,
     );
 
     console.log(`⚡ Dispatching ${count} concurrent requests...`);
@@ -91,18 +97,22 @@ async function runStressTest() {
     const totalElapsed = Date.now() - batchStart;
 
     const settled = results.map((r) =>
-      r.status === "fulfilled" ? r.value : { ok: false, elapsed: 0 }
+      r.status === "fulfilled" ? r.value : { ok: false, elapsed: 0 },
     );
     const successful = settled.filter((r) => r.ok).length;
     const failed = count - successful;
     const successTimes = settled.filter((r) => r.ok).map((r) => r.elapsed);
     const avgMs = successTimes.length
-      ? Math.round(successTimes.reduce((a, b) => a + b, 0) / successTimes.length)
+      ? Math.round(
+          successTimes.reduce((a, b) => a + b, 0) / successTimes.length,
+        )
       : 0;
     const maxMs = successTimes.length ? Math.max(...successTimes) : 0;
 
     console.log(`   ✅ Success: ${successful}/${count}  ❌ Failed: ${failed}`);
-    console.log(`   ⏱  Avg response: ${avgMs}ms | Max: ${maxMs}ms | Batch total: ${totalElapsed}ms\n`);
+    console.log(
+      `   ⏱  Avg response: ${avgMs}ms | Max: ${maxMs}ms | Batch total: ${totalElapsed}ms\n`,
+    );
 
     await new Promise((r) => setTimeout(r, 3000)); // pause between levels
   }
