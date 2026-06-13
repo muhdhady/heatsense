@@ -12,6 +12,18 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { DEMO_EMAIL } from '@/lib/constants';
+
+// The public demo account is read-only: it can view everything but cannot mutate
+// shared data. Returns a 403 the UI surfaces as a toast. Returns true when the
+// request should be blocked.
+function isDemo(session: { user?: { email?: string | null } } | null): boolean {
+  return session?.user?.email === DEMO_EMAIL;
+}
+const demoBlocked = () => NextResponse.json(
+  { error: 'This is a read-only demo account. Changes are disabled.' },
+  { status: 403 },
+);
 
 export async function GET() {
   try {
@@ -30,6 +42,8 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (isDemo(session)) return demoBlocked();
 
     const body = await req.json();
     const { name, deviceId, role } = body;
@@ -68,6 +82,8 @@ export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (isDemo(session)) return demoBlocked();
 
     const body = await req.json();
     const { id, name, role, deviceId } = body;
@@ -110,6 +126,8 @@ export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (isDemo(session)) return demoBlocked();
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

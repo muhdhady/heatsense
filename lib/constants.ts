@@ -16,3 +16,10 @@ export const SIGNAL_TIMEOUT_MS = SIGNAL_TIMEOUT_MINS * 60 * 1000;
 
 // All date/time display and range logic uses UAE Standard Time (UTC+4).
 export const APP_TIMEZONE = 'Asia/Dubai';
+
+// Public read-only demo account, used by the "Sign in as demo" button on the login
+// page so recruiters/visitors can explore the dashboard without credentials.
+// Writes (add/edit/delete worker) are rejected server-side for this account so the
+// shared demo data stays intact — see app/api/workers/route.ts.
+export const DEMO_EMAIL = 'demo@heatsense.com';
+export const DEMO_PASSWORD = 'demo';

@@ -27,6 +27,21 @@ async function main() {
       password: hashedPassword,
     },
   });
+
+  // Public read-only demo account, surfaced by the "Sign in as demo" button on the
+  // login page. Writes are blocked for this account in app/api/workers/route.ts, so
+  // the credentials being public costs nothing. Keep in sync with DEMO_EMAIL in
+  // lib/constants.ts.
+  const demoPassword = await bcrypt.hash('demo', 10);
+  await db.supervisor.upsert({
+    where: { email: 'demo@heatsense.com' },
+    update: {},
+    create: {
+      email: 'demo@heatsense.com',
+      name: 'Demo Viewer',
+      password: demoPassword,
+    },
+  });
 }
 
 main()

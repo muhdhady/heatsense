@@ -8,11 +8,12 @@
 
 'use client';
 
-import { Flame, ArrowRight, Lock, Loader2 } from 'lucide-react';
+import { Flame, ArrowRight, Lock, Loader2, Eye } from 'lucide-react';
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/constants";
 
 export default function Home() {
   const router = useRouter();
@@ -20,24 +21,33 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  // Shared sign-in flow used by both the form and the demo button.
+  // `redirect: false` lets us inspect the result and show a toast before
+  // navigating manually.
+  const authenticate = async (loginEmail: string, loginPassword: string) => {
+    const result = await signIn("credentials", {
+      redirect: false,
+      email: loginEmail,
+      password: loginPassword,
+    });
+
+    if (result?.ok) {
+      toast.success("Access Granted. Initializing dashboard...");
+      router.push("/dashboard");
+      return true;
+    }
+    return false;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // `redirect: false` prevents NextAuth from doing its own redirect so we can
-      // inspect the result and show a toast before navigating manually
-      const result = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-      });
-
-      if (result?.ok) {
-        toast.success("Access Granted. Initializing dashboard...");
-        router.push("/dashboard");
-      } else {
+      const ok = await authenticate(email, password);
+      if (!ok) {
         toast.error("Invalid credentials. Please check your email and password.");
         setLoading(false);
       }
@@ -45,6 +55,22 @@ export default function Home() {
       // Catches network-level failures (offline, DNS error, etc.)
       toast.error("Network error. Please check your connection.");
       setLoading(false);
+    }
+  };
+
+  // One-click entry into the public read-only demo account. Writes are blocked
+  // server-side for this account (see app/api/workers/route.ts).
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    try {
+      const ok = await authenticate(DEMO_EMAIL, DEMO_PASSWORD);
+      if (!ok) {
+        toast.error("Demo is unavailable right now. Please try again shortly.");
+        setDemoLoading(false);
+      }
+    } catch {
+      toast.error("Network error. Please check your connection.");
+      setDemoLoading(false);
     }
   };
 
@@ -117,6 +143,36 @@ export default function Home() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px flex-1 bg-stone-100" />
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">or</span>
+            <div className="h-px flex-1 bg-stone-100" />
+          </div>
+
+          {/* One-click read-only demo for recruiters / visitors */}
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={demoLoading || loading}
+            className="group w-full flex items-center justify-center gap-2 bg-white hover:bg-stone-50 text-stone-700 font-semibold py-3 rounded-lg border border-stone-200 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {demoLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Entering demo...
+              </>
+            ) : (
+              <>
+                <Eye size={18} className="text-orange-500" />
+                Explore read-only demo
+              </>
+            )}
+          </button>
+          <p className="text-center text-[11px] text-stone-400 mt-2">
+            No account needed. Viewing only - changes are disabled.
+          </p>
         </div>
 
         {/* Three-segment decorative stripe at the bottom of the card */}

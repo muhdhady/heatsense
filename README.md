@@ -16,6 +16,17 @@ Built for the climate of the Gulf, where outdoor labour routinely happens in 45 
 
 ---
 
+## Live demo
+
+**[heatsense.vercel.app](https://heatsense.vercel.app)**
+
+Click **"Explore read-only demo"** on the login page for instant one-click access. No
+credentials required - it signs you into a read-only account where every view works but
+data-changing actions (add / edit / delete worker) are disabled, so the demo data stays
+intact for the next visitor.
+
+---
+
 ## Demo
 
 ### Supervisor dashboard
