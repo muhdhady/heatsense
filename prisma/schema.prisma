@@ -1,0 +1,49 @@
+// Prisma schema for HeatSense.
+// Database: PostgreSQL (Neon serverless, production) / local Docker (development).
+//
+// Three models:
+//   Supervisor  — the login account for the site manager who views the dashboard.
+//   Worker      — a field worker paired to a physical ESP32 wearable device.
+//   HealthLog   — one row per telemetry upload from a wearable (heartRate, skinTemp, tc, riskLevel).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Supervisor {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String                    // bcrypt hash — never stored in plaintext
+  name      String
+  createdAt DateTime @default(now())
+}
+
+model Worker {
+  id        Int      @id @default(autoincrement())
+  name      String
+  deviceId  String   @unique          // serial number printed on the ESP32 device (e.g. "HS-001")
+  status    String   @default("green") // 'green' = safe, 'red' = critical — updated on each ingest
+  role      String
+  lastSeen  DateTime @default(now())  // timestamp of the most recent successful upload
+
+  logs      HealthLog[]
+}
+
+model HealthLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  heartRate Float                     // beats per minute, from the pulse sensor
+  skinTemp  Float                     // degrees Celsius, from the skin temperature sensor
+  riskLevel Int                       // 0 = safe, 1 = critical (set by the on-device ML classifier)
+  tc        Int      @default(0)      // thermal discomfort button: 0 (no input), 5 (low), 11 (medium), 17 (high)
+  workerId  Int
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([timestamp])  // speeds up date-range queries on the history tab
+  @@index([workerId])   // speeds up per-worker log fetches
+}
