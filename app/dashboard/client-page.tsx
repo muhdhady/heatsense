@@ -26,7 +26,9 @@ import {
   Signal,
   Droplets,
   CloudSun,
+  LogOut,
 } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 import { toast } from 'sonner';
 import { StatusTable } from '@/components/tables/StatusTable';
 import { WorkerModal } from '@/components/ui/WorkerModal';
@@ -327,6 +329,18 @@ export default function DashboardClient({ initialData, initialWeather }: Dashboa
               <Plus size={16} />
               <span className="hidden md:inline">Add Worker</span>
               <span className="md:hidden">Add</span>
+            </button>
+            {/* Clears the NextAuth session and returns to the login page. */}
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("monitoring_started");
+                signOut({ callbackUrl: "/" });
+              }}
+              title="Sign out"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-stone-200 bg-white text-stone-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
+            >
+              <LogOut size={16} />
+              <span className="hidden md:inline">Sign Out</span>
             </button>
           </div>
         </div>
