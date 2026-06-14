@@ -187,24 +187,40 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
     }
   };
 
-  // Build a CSV file from the currently displayed logs and trigger a browser download
-  const handleExport = () => {
-    if (isRangeInvalid || !chartLogs.length || isPending) return;
+  const [isExporting, setIsExporting] = useState(false);
 
-    const headers = "Timestamp,Worker ID,Heart Rate (BPM),Skin Temp (C),TC (Thermal Discomfort),Risk Level\n";
-    const rows = chartLogs.map((log: any) =>
-      `${log.timestamp},${worker.id},${log.heartRate},${log.skinTemp},${tcLabel(log.tc ?? null)},${log.riskLevel}`,
-    ).join("\n");
+  // Export the FULL log history for the selected range as CSV.
+  //
+  // The charts only receive a downsampled subset of readings (the server caps
+  // chart points for performance), so we can't build the CSV from chartLogs or
+  // it would be lossy. Instead we hit /api/workers/[id]/export, which does the
+  // full un-downsampled DB read and returns a CSV file on demand.
+  const handleExport = async () => {
+    if (isRangeInvalid || isPending || isExporting) return;
 
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    const safeName = worker.name.replace(/\s+/g, '_');
-    link.setAttribute('download', `${safeName}_${dateRange.from}_to_${dateRange.to}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Download started.");
+    setIsExporting(true);
+    try {
+      const res = await fetch(
+        `/api/workers/${worker.id}/export?from=${dateRange.from}&to=${dateRange.to}`,
+      );
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      const safeName = worker.name.replace(/\s+/g, '_');
+      link.setAttribute('download', `${safeName}_${dateRange.from}_to_${dateRange.to}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      toast.success("Download started.");
+    } catch (err) {
+      console.error('[Export]:', err);
+      toast.error("Export failed. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -370,16 +386,16 @@ export default function WorkerDetailsClient({ worker }: { worker: any }) {
 
             <button
               onClick={handleExport}
-              disabled={isPending || isRangeInvalid || !chartLogs.length}
+              disabled={isPending || isExporting || isRangeInvalid || !chartLogs.length}
               className={cn(
                 "w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all",
-                (isPending || isRangeInvalid || !chartLogs.length)
+                (isPending || isExporting || isRangeInvalid || !chartLogs.length)
                   ? "bg-stone-200 text-stone-400 cursor-not-allowed"
                   : "bg-stone-900 text-white hover:bg-orange-600 shadow-sm",
               )}
             >
-              <Download size={14} />
-              Export CSV
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {isExporting ? "Exporting..." : "Export CSV"}
             </button>
           </div>
         )}

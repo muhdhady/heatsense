@@ -18,6 +18,21 @@ import WorkerDetailsClient from './client-page';
 
 export const dynamic = 'force-dynamic';
 
+// Cap how many points the charts receive. A wide date range can contain tens of
+// thousands of readings (the wearable uploads every few seconds), which both
+// bloats the RSC payload and makes recharts render a blank/frozen chart. We
+// downsample to at most this many evenly-spaced points, preserving the overall
+// trend shape while keeping the payload small.
+const MAX_CHART_POINTS = 500;
+
+function downsample<T>(rows: T[], max: number): T[] {
+  if (rows.length <= max) return rows;
+  const step = (rows.length - 1) / (max - 1);
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(rows[Math.round(i * step)]);
+  return out;
+}
+
 interface PageProps {
   params: Promise<{ workerId: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -69,7 +84,7 @@ export default async function WorkerDetailsPage({ params, searchParams }: PagePr
   const serializedWorker = {
     ...worker,
     lastSeen: worker.lastSeen.toISOString(),
-    logs: worker.logs.map(log => ({
+    logs: downsample(worker.logs, MAX_CHART_POINTS).map(log => ({
       ...log,
       timestamp: log.timestamp.toISOString(),
     })),
