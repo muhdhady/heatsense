@@ -46,11 +46,11 @@ thermal-discomfort input button, and a haptic motor for on-body alerts.
 ## How it works
 
 ```
- ┌───────────────┐   HTTPS / x-api-key   ┌─────────────────────┐   polling  ┌──────────────┐
- │ ESP32 wearable │ ───────────────────▶ │ Next.js /api/ingest  │ ◀───────── │  Supervisor  │
+ ┌────────────────┐   HTTPS / x-api-key   ┌──────────────────────┐   polling  ┌──────────────┐
+ │ ESP32 wearable │ ───────────────────▶  │ Next.js /api/ingest  │ ◀───────── │  Supervisor  │
  │  HR · skin °C  │    JSON telemetry     │ Postgres (Prisma)    │ refresh()  │  dashboard   │
  │  on-device ML  │    every ~30 s        │ risk evaluation      │            │  + alarm     │
- └───────────────┘                        └─────────────────────┘            └──────────────┘
+ └────────────────┘                       └──────────────────────┘            └──────────────┘
 ```
 
 1. **Sense** - the wearable reads heart rate and skin temperature, and lets the worker flag
